@@ -7,8 +7,8 @@
 
 [npm-image]: https://img.shields.io/npm/v/township-accounts.svg?style=flat-square
 [npm-url]: https://www.npmjs.com/package/township-accounts
-[travis-image]: https://img.shields.io/travis/sethvincent/township-accounts.svg?style=flat-square
-[travis-url]: https://travis-ci.org/sethvincent/township-accounts
+[travis-image]: https://img.shields.io/travis/township/township-accounts.svg?style=flat-square
+[travis-url]: https://travis-ci.org/township/township-accounts
 [standard-image]: https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat-square
 [standard-url]: http://npm.im/standard
 [conduct]: https://img.shields.io/badge/code%20of%20conduct-contributor%20covenant-green.svg?style=flat-square
@@ -63,7 +63,7 @@ Read about the changes to this project in [CHANGELOG.md](CHANGELOG.md). The form
 ## Contact
 
 - **chat** – You can chat about this project at []()
-- **issues** – Please open issues in the [issues queue](https://github.com/sethvincent/township-accounts/issues)
+- **issues** – Please open issues in the [issues queue](https://github.com/township/township-accounts/issues)
 - **twitter** – Have a question? [@sethdvincent](https://twitter.com/sethdvincent)
 - **email** – Need in-depth support via paid contract? Send an email to sethvincent@gmail.com
 
