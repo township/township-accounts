@@ -10,12 +10,11 @@ var xtend = require('xtend')
 module.exports = function (db, config) {
   assert.equal(typeof db, 'object', 'leveldb instance required as first argument')
   assert.equal(typeof config, 'object', 'config object required')
-  assert.equal(typeof config.name, 'string', 'config.name string required')
 
   var accounts = {}
   var auth = createAuth(db, { providers: { basic: basic } })
-  var access = createAccess(db)
-  var jwt = createToken(db, { secret: config.secret })
+  var access = createAccess(db, config)
+  var jwt = createToken(db, config)
 
   /*
   * Hooks
@@ -34,43 +33,51 @@ module.exports = function (db, config) {
     })
   }
 
-  accounts.register = function register (opts, callback) {
-    assert.ok(opts.email, 'opts.email required')
-    assert.ok(opts.password, 'opts.password required')
-    // user-defined required opts?
+  accounts.register = function register (options, callback) {
+    if (!options.email) return callback(new Error('options.email required'))
+    if (!options.password) return callback(new Error('options.password required'))
+    options.scopes = options.scopes || []
 
-    hooks.beforeRegister(opts, function (err, newOpts) {
+    hooks.beforeRegister(options, function (err, hookOptions) {
       if (err) return callback(err)
-      opts = xtend(opts, newOpts)
+      options = xtend(options, hookOptions)
 
-      accounts.findByEmail(opts.email, function (err, account) {
-        if (!err && account) {
-          return callback(new Error('Cannot create account with that email address'))
-        } else {
-          auth.create({ basic: opts }, function (err, authData) {
+      accounts.findByEmail(options.email, function (err, account) {
+        if (!err && account) return callback(new Error('Cannot create account with that email address'))
+
+        auth.create({ basic: options }, function (err, authData) {
+          if (err) return callback(err)
+
+          access.create(authData.key, options.scopes, function (err, accessData) {
             if (err) return callback(err)
 
-            access.create(authData.key, ['api:access'], function (err, accessData) {
-              if (err) return callback(err)
-
-              var token = jwt.sign({
-                auth: authData,
-                access: accessData
-              })
-
-              hooks.afterRegister({ key: authData.key, token: token }, callback)
+            var token = jwt.sign({
+              auth: authData,
+              access: accessData
             })
+
+            hooks.afterRegister({ key: authData.key, token: token }, callback)
           })
-        }
+        })
       })
     })
   }
 
-  accounts.login = function login (opts, callback) {
-    assert.equal(typeof opts.email, 'string', 'opts.email required')
-    assert.equal(typeof opts.password, 'string', 'opts.password required')
+  accounts.login = function login (options, callback) {
+    if (!options || typeof options !== 'object') {
+      return cb(new Error('email and password properties required'), 400)
+    }
 
-    auth.verify('basic', opts, function (err, authData) {
+    var email = options.email
+    var password = options.password
+
+    if (!email) {
+      return cb(new Error('email property required'), 400)
+    } else if (!password) {
+      return cb(new Error('password property required'), 400)
+    }
+
+    auth.verify('basic', options, function (err, authData) {
       if (err) return callback(err)
 
       access.get(authData.key, function (err, accessData) {
@@ -90,6 +97,8 @@ module.exports = function (db, config) {
   }
 
   accounts.destroy = function destroy (key, callback) {
+    if (!key || typeof key !== 'object') return callback(new Error('options object is required'))
+
     hooks.beforeDestroy(key, function (err) {
       if (err) return callback(err)
       auth.destroy(key, function (err) {
@@ -102,16 +111,18 @@ module.exports = function (db, config) {
     })
   }
 
-  accounts.resetPassword = function resetPassword (opts, callback) {
-    assert.equal(typeof opts, 'opts object is required')
-    assert.equal(typeof opts.key, 'string', 'opts.key string is required')
-    assert.equal(typeof opts.email, 'string', 'opts.email string is required')
-    assert.equal(typeof opts.password, 'string', 'opts.password string is required')
-    assert.equal(typeof opts.newPassword, 'string', 'opts.newPassword string is required')
+  accounts.updatePassword = function updatePassword (options, callback) {
+    if (typeof options !== 'object') return callback(new Error('options object is required'))
+    if (typeof options.email !== 'string') return callback(new Error('options.email string is required'))
+    if (typeof options.password !== 'string') return callback(new Error('options.password string is required'))
+    if (typeof options.newPassword !== 'string') return callback(new Error('options.newPassword string is required'))
+    if (typeof options.token !== 'object') return callback(new Error('options.token object is required'))
+    if (typeof options.token.access !== 'object') return callback(new Error('options.token.access object is required'))
+    if (typeof options.rawToken !== 'string') return callback(new Error('options.rawToken string is required'))
 
     var creds = {
-      email: opts.email,
-      password: opts.password
+      email: options.email,
+      password: options.password
     }
 
     auth.verify('basic', creds, function (err, authData) {
@@ -119,26 +130,40 @@ module.exports = function (db, config) {
 
       var updatedCreds = {
         key: authData.key,
-        email: opts.email,
-        password: opts.newPassword
+        basic: {
+          email: options.email,
+          password: options.newPassword
+        }
       }
 
-      auth.update(updatedCreds, callback)
+      auth.update(updatedCreds, function (err, authData) {
+        if (err) return callback(err)
+
+        var newToken = jwt.sign({
+          auth: authData,
+          access: options.token.access
+        })
+
+        jwt.invalidate(options.rawToken, function (err) {
+          if (err) return callback(err)
+          callback(null, { key: authData.key, token: newToken })
+        })
+      })
     })
   }
 
-  accounts.verifyScope = function verifyScope (account, scopes) {}
+  accounts.authorize = function authorize (account, scopes) {}
 
   /*
   * HTTP Request methods
   */
 
   accounts.verify = function verify (req, callback) {
-    accounts.verifyToken(req, function (err, tokenData) {
+    accounts.verifyToken(req, function (err, tokenData, token) {
       if (err) return callback(err)
       accounts.findByEmail(tokenData.auth.basic.email, function (err, account) {
         if (err) return callback(new Error('Account not found'))
-        callback(null, tokenData)
+        callback(null, tokenData, token)
       })
     })
   }
@@ -146,7 +171,10 @@ module.exports = function (db, config) {
   accounts.verifyToken = function verifyToken (req, callback) {
     var token = accounts.getToken(req)
     if (!token || typeof token !== 'string') return callback(new Error('Not Authorized: token is required'))
-    return jwt.verify(token, callback)
+    return jwt.verify(token, function (err, tokenData) {
+      if (err) return callback(err)
+      callback(null, tokenData, token)
+    })
   }
 
   accounts.getToken = function getToken (req) {
