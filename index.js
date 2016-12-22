@@ -39,28 +39,6 @@ module.exports = function townshipAccounts (db, config) {
   hooks.beforeDestroy = hooks.beforeDestroy || noop
 
   /**
-  * Find an account by email
-  * @name findbyEmail
-  * @param {String} email – email address that corresponds to an account
-  * @param {Function} callback – callback function called with `error` and `accountData` arguments
-  * @example
-  *
-  * accounts.findByEmail('user@example.com', function (err, accountData) {
-  *   if (err) return console.log(err)
-  *   console.log(accountData)
-  * })
-  **/
-  accounts.findByEmail = function findByEmail (email, callback) {
-    auth.findOne('basic', email, function (err, authData) {
-      if (err || !authData) return callback(new Error('Account not found'))
-      access.get(authData.key, function (err, accessData) {
-        if (err) return callback(err)
-        callback(null, { key: authData.key, access: accessData, auth: authData })
-      })
-    })
-  }
-
-  /**
   * Create an account
   * @name register
   * @param {Object} options – email address that corresponds to an account
@@ -190,6 +168,28 @@ module.exports = function townshipAccounts (db, config) {
           if (err) return callback(err)
           callback(null, key)
         })
+      })
+    })
+  }
+
+  /**
+  * Find an account by email
+  * @name findbyEmail
+  * @param {String} email – email address that corresponds to an account
+  * @param {Function} callback – callback function called with `error` and `accountData` arguments
+  * @example
+  *
+  * accounts.findByEmail('user@example.com', function (err, accountData) {
+  *   if (err) return console.log(err)
+  *   console.log(accountData)
+  * })
+  **/
+  accounts.findByEmail = function findByEmail (email, callback) {
+    auth.findOne('basic', email, function (err, authData) {
+      if (err || !authData) return callback(new Error('Account not found'))
+      access.get(authData.key, function (err, accessData) {
+        if (err) return callback(err)
+        callback(null, { key: authData.key, access: accessData, auth: authData })
       })
     })
   }

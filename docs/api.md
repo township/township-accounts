@@ -21,24 +21,6 @@ var accounts = townshipAccounts(db, {
 })
 ```
 
-# findbyEmail
-
-Find an account by email
-
-**Parameters**
-
--   `email` **[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)** – email address that corresponds to an account
--   `callback` **[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function)** – callback function called with `error` and `accountData` arguments
-
-**Examples**
-
-```javascript
-accounts.findByEmail('user@example.com', function (err, accountData) {
-  if (err) return console.log(err)
-  console.log(accountData)
-})
-```
-
 # register
 
 Create an account
@@ -105,6 +87,24 @@ Log out of an account
 ```javascript
 accounts.logout(token, function (err) {
   if (err) return console.log(err)
+})
+```
+
+# findbyEmail
+
+Find an account by email
+
+**Parameters**
+
+-   `email` **[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)** – email address that corresponds to an account
+-   `callback` **[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function)** – callback function called with `error` and `accountData` arguments
+
+**Examples**
+
+```javascript
+accounts.findByEmail('user@example.com', function (err, accountData) {
+  if (err) return console.log(err)
+  console.log(accountData)
 })
 ```
 

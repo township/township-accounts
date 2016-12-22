@@ -1,7 +1,7 @@
 {
   "name": "township-accounts",
   "version": "4.0.0",
-  "description": "Manage user accounts",
+  "description": "Node.js library for managing user accounts.",
   "main": "index.js",
   "scripts": {
     "deps": "dependency-check . && dependency-check . --unused --no-dev && ncu",

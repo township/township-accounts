@@ -1,5 +1,7 @@
 # township-accounts
 
+Node.js library for managing user accounts.
+
 [![npm][npm-image]][npm-url]
 [![travis][travis-image]][travis-url]
 [![standard][standard-image]][standard-url]
@@ -16,6 +18,8 @@
 
 ## About
 
+township-accounts is a high-level module based on [township-auth](), which manages authentication credentials, [township-access](), which manages authorization via access scopes, and [township-token](), which manages JWT tokens.
+
 ## Install
 
 ```sh
@@ -24,11 +28,21 @@ npm install --save township-accounts
 
 ## Usage
 
-```js
-var accounts = createAccounts(db(), {
-  name: 'example'
-})
+### Create the `accounts` object by calling the `townshipAccounts` constructor:
 
+```js
+var townshipAccounts = require('township-accounts')
+var level = require('level')
+var db = level('db')
+
+var accounts = townshipAccounts(db, {
+  secret: 'not very secret'
+})
+```
+
+### Create an account with the `register` method:
+
+```js
 var creds = {
   email: 'hi@example.com',
   password: 'weee'
@@ -38,6 +52,29 @@ accounts.register(creds, function (err, account) {
   console.log(err, account)
 })
 ```
+
+### Log in with the `login` method:
+
+```js
+var creds = {
+  email: 'hi@example.com',
+  password: 'weee'
+}
+
+accounts.login(creds, function (err, account) {
+  console.log(err, account)
+})
+```
+
+### Log out with the `logout` method:
+
+```js
+accounts.logout(accountKey, function (err, account) {
+  console.log(err, account)
+})
+```
+
+See more in the [API documentation](docs/api.md)
 
 ## Documentation
 - [Getting started](docs/getting-started.md)
