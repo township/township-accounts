@@ -1,7 +1,7 @@
 {
   "name": "township-accounts",
   "version": "3.0.0",
-  "description": "Simple user accounts",
+  "description": "Manage user accounts",
   "main": "index.js",
   "scripts": {
     "deps": "dependency-check . && dependency-check . --unused --no-dev && ncu",
@@ -29,7 +29,6 @@
   },
   "homepage": "https://github.com/township/township-accounts#readme",
   "dependencies": {
-    "cookie-cutter": "^0.2.0",
     "township-access": "^2.0.0",
     "township-auth": "^2.0.5",
     "township-token": "^2.2.0",

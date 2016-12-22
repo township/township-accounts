@@ -4,10 +4,24 @@ var createAuth = require('township-auth')
 var basic = require('township-auth/basic')
 var createAccess = require('township-access')
 var createToken = require('township-token')
-var cookie = require('cookie-cutter')
 var xtend = require('xtend')
 
-module.exports = function (db, config) {
+/**
+* Create an accounts object
+* @name townshipAccounts
+* @param {Object} db – instance of a level db. See https://npmjs.com/level
+* @param {Object} config – configuration object
+* @example
+*
+* var townshipAccounts = require('township-accounts')
+* var level = require('level')
+* var db = level('db')
+*
+* var accounts = townshipAccounts(db, {
+*   secret: 'not a secret'
+* })
+**/
+module.exports = function townshipAccounts (db, config) {
   assert.equal(typeof db, 'object', 'leveldb instance required as first argument')
   assert.equal(typeof config, 'object', 'config object required')
 
@@ -22,17 +36,51 @@ module.exports = function (db, config) {
   var hooks = config.hooks || {}
   hooks.beforeRegister = hooks.beforeRegister || noop
   hooks.afterRegister = hooks.afterRegister || noop
-  hooks.beforeUpdate = hooks.beforeUpdate || noop
-  hooks.afterUpdate = hooks.afterUpdate || noop
   hooks.beforeDestroy = hooks.beforeDestroy || noop
 
+  /**
+  * Find an account by email
+  * @name findbyEmail
+  * @param {String} email – email address that corresponds to an account
+  * @param {Function} callback – callback function called with `error` and `accountData` arguments
+  * @example
+  *
+  * accounts.findByEmail('user@example.com', function (err, accountData) {
+  *   if (err) return console.log(err)
+  *   console.log(accountData)
+  * })
+  **/
   accounts.findByEmail = function findByEmail (email, callback) {
-    auth.findOne('basic', email, function (err, account) {
-      if (err || !account) return callback(new Error('Account with email ' + email + ' Not found'))
-      return callback(null, account)
+    auth.findOne('basic', email, function (err, authData) {
+      if (err || !authData) return callback(new Error('Account not found'))
+      access.get(authData.key, function (err, accessData) {
+        if (err) return callback(err)
+        callback(null, { key: authData.key, access: accessData, auth: authData })
+      })
     })
   }
 
+  /**
+  * Create an account
+  * @name register
+  * @param {Object} options – email address that corresponds to an account
+  * @param {String} options.email – email address that corresponds to an account
+  * @param {String} options.password – password that corresponds to an account
+  * @param {Array} options.scopes – access scopes for an account
+  * @param {Function} callback – callback function called with `error` and `accountData` arguments
+  * @example
+  *
+  * var creds = {
+  *   email: 'user@example.com',
+  *   password: 'notverysecret',
+  *   scopes: ['example:read']
+  * }
+  *
+  * accounts.register(creds, function (err, account) {
+  *   if (err) return console.log(err)
+  *   console.log(account.key, account.token)
+  * })
+  **/
   accounts.register = function register (options, callback) {
     if (!options.email) return callback(new Error('options.email required'))
     if (!options.password) return callback(new Error('options.password required'))
@@ -56,25 +104,49 @@ module.exports = function (db, config) {
               access: accessData
             })
 
-            hooks.afterRegister({ key: authData.key, token: token }, callback)
+            var account = { key: authData.key, token: token }
+
+            hooks.afterRegister(account, function (err, data) {
+              if (err) return callback(err)
+              return callback(null, data)
+            })
           })
         })
       })
     })
   }
 
+  /**
+  * Log in to an account
+  * @name login
+  * @param {Object} options – email address that corresponds to an account
+  * @param {String} options.email – email address that corresponds to an account
+  * @param {String} options.password – password that corresponds to an account
+  * @param {Function} callback – callback function called with `error` and `account` arguments
+  * @example
+  *
+  * var creds = {
+  *   email: 'user@example.com',
+  *   password: 'notverysecret'
+  * }
+  *
+  * accounts.login(creds, function (err, account) {
+  *   if (err) return console.log(err)
+  *   console.log(account.key, account.token)
+  * })
+  **/
   accounts.login = function login (options, callback) {
     if (!options || typeof options !== 'object') {
-      return cb(new Error('email and password properties required'), 400)
+      return callback(new Error('email and password properties required'), 400)
     }
 
     var email = options.email
     var password = options.password
 
     if (!email) {
-      return cb(new Error('email property required'), 400)
+      return callback(new Error('email property required'), 400)
     } else if (!password) {
-      return cb(new Error('password property required'), 400)
+      return callback(new Error('password property required'), 400)
     }
 
     auth.verify('basic', options, function (err, authData) {
@@ -88,6 +160,17 @@ module.exports = function (db, config) {
     })
   }
 
+  /**
+  * Log out of an account
+  * @name logout
+  * @param {String} token – the active token for an account
+  * @param {Function} callback – callback function called with an `error` argument
+  * @example
+  *
+  * accounts.logout(token, function (err) {
+  *   if (err) return console.log(err)
+  * })
+  **/
   accounts.logout = function logout (token, callback) {
     jwt.verify(token, function (err, account) {
       if (err && err.message === 'jwt expired') return callback()
@@ -97,7 +180,7 @@ module.exports = function (db, config) {
   }
 
   accounts.destroy = function destroy (key, callback) {
-    if (!key || typeof key !== 'object') return callback(new Error('options object is required'))
+    if (!key || typeof key !== 'string') return callback(new Error('account key is required'))
 
     hooks.beforeDestroy(key, function (err) {
       if (err) return callback(err)
@@ -111,100 +194,140 @@ module.exports = function (db, config) {
     })
   }
 
+  /**
+  * Update password of an account
+  * @name updatePassword
+  * @param {Object} options – email address that corresponds to an account
+  * @param {String} options.email – email address that corresponds to an account
+  * @param {String} options.password – password that corresponds to an account
+  * @param {String} options.newPassword – new password for an account
+  * @param {String} token – the active token for an account
+  * @param {Function} callback – callback function called with `error` and `account` arguments
+  * @example
+  *
+  * var creds = {
+  *   email: 'user@example.com',
+  *   password: 'notverysecret',
+  *   newPassword: 'still not very secret',
+  *   token: token
+  * }
+  *
+  * accounts.updatePassword(creds, function (err, account) {
+  *   if (err) return console.log(err)
+  *   console.log(account.key, account.token)
+  * })
+  **/
   accounts.updatePassword = function updatePassword (options, callback) {
     if (typeof options !== 'object') return callback(new Error('options object is required'))
     if (typeof options.email !== 'string') return callback(new Error('options.email string is required'))
     if (typeof options.password !== 'string') return callback(new Error('options.password string is required'))
     if (typeof options.newPassword !== 'string') return callback(new Error('options.newPassword string is required'))
-    if (typeof options.token !== 'object') return callback(new Error('options.token object is required'))
-    if (typeof options.token.access !== 'object') return callback(new Error('options.token.access object is required'))
-    if (typeof options.rawToken !== 'string') return callback(new Error('options.rawToken string is required'))
+    if (typeof options.token !== 'string') return callback(new Error('options.token string is required'))
 
     var creds = {
       email: options.email,
       password: options.password
     }
 
-    auth.verify('basic', creds, function (err, authData) {
+    accounts.findByEmail(options.email, function (err, account) {
       if (err) return callback(err)
 
-      var updatedCreds = {
-        key: authData.key,
-        basic: {
-          email: options.email,
-          password: options.newPassword
-        }
-      }
-
-      auth.update(updatedCreds, function (err, authData) {
+      auth.verify('basic', creds, function (err, authData) {
         if (err) return callback(err)
 
-        var newToken = jwt.sign({
-          auth: authData,
-          access: options.token.access
-        })
+        var updatedCreds = {
+          key: authData.key,
+          basic: {
+            email: options.email,
+            password: options.newPassword
+          }
+        }
 
-        jwt.invalidate(options.rawToken, function (err) {
+        auth.update(updatedCreds, function (err, authData) {
           if (err) return callback(err)
-          callback(null, { key: authData.key, token: newToken })
+
+          var newToken = jwt.sign({
+            auth: authData,
+            access: account.access
+          })
+
+          jwt.invalidate(options.token, function (err) {
+            if (err) return callback(err)
+            callback(null, { key: authData.key, token: newToken })
+          })
         })
       })
     })
   }
 
-  accounts.authorize = function authorize (account, scopes) {}
+  /**
+  * Authorize account using access scopes
+  * @name authorize
+  * @param {String} accountKey – the key for an account
+  * @param {Array} scopes – the scopes your are checking for in the account's access permissions
+  * @param {Function} callback – callback function called with an `error` argument
+  * @example
+  *
+  * accounts.authorize(key, ['example:read'], function (err) {
+  *   if (err) return console.log(err)
+  * })
+  **/
+  accounts.authorize = function authorize (accountKey, scopes, callback) {
+    access.verify(accountKey, scopes, callback)
+  }
 
-  /*
-  * HTTP Request methods
-  */
-
-  accounts.verify = function verify (req, callback) {
-    accounts.verifyToken(req, function (err, tokenData, token) {
+  /**
+  * Authorize account using access scopes via their email
+  * @name authorizeByEmail
+  * @param {String} email – the email address associated with an account
+  * @param {Array} scopes – the scopes your are checking for in the account's access permissions
+  * @param {Function} callback – callback function called with an `error` argument
+  * @example
+  *
+  * accounts.authorizeByEmail('user@example.com', ['example:read'], function (err) {
+  *   if (err) return console.log(err)
+  * })
+  **/
+  accounts.authorizeByEmail = function authorizeByEmail (email, scopes, callback) {
+    accounts.findByEmail(email, function (err, accountData) {
       if (err) return callback(err)
-      accounts.findByEmail(tokenData.auth.basic.email, function (err, account) {
-        if (err) return callback(new Error('Account not found'))
-        callback(null, tokenData, token)
-      })
+      access.verify(accountData.key, scopes, callback)
     })
   }
 
-  accounts.verifyToken = function verifyToken (req, callback) {
-    var token = accounts.getToken(req)
-    if (!token || typeof token !== 'string') return callback(new Error('Not Authorized: token is required'))
-    return jwt.verify(token, function (err, tokenData) {
+  /**
+  * Update the access scopes of an account
+  * @name updateScopes
+  * @param {String} key – the key associated with an account
+  * @param {Array} scopes – the new scopes of the account. note that this completely replaces the old scopes array
+  * @param {Function} callback – callback function called with an `error` argument
+  * @example
+  *
+  * accounts.updateScopes(key, ['example:read'], function (err) {
+  *   if (err) return console.log(err)
+  * })
+  **/
+  accounts.updateScopes = function updateScopes (key, scopes, callback) {
+    access.update(key, scopes, callback)
+  }
+
+  /**
+  * verify that a token is valid
+  * @name verifyToken
+  * @param {String} token – the JWT created when registering or logging in
+  * @param {Function} callback – callback function called with `error` and `accountData` arguments
+  * @example
+  *
+  * accounts.updateScopes(key, ['example:read'], function (err) {
+  *   if (err) return console.log(err)
+  * })
+  **/
+  accounts.verifyToken = function verifyToken (token, callback) {
+    if (typeof token !== 'string') return callback(new Error('encrypted token is required'))
+    return jwt.verify(token, function (err, accountData) {
       if (err) return callback(err)
-      callback(null, tokenData, token)
+      callback(null, accountData, token)
     })
-  }
-
-  accounts.getToken = function getToken (req) {
-    var authHeader = req.headers.authorization
-    var token
-    if (authHeader && authHeader.indexOf('Bearer') > -1) {
-      token = authHeader.split('Bearer ')[1]
-    } else if (req.headers.cookie) {
-      token = cookie(req.headers.cookie).get(config.name + '_access_token')
-    }
-    return token
-  }
-
-  /*
-  * HTTP Response methods
-  */
-
-  accounts.setCookie = function setCookie (res, options) {
-    assert.equal(typeof res, 'object', 'response object is required')
-    assert.equal(typeof options, 'object', 'options object is required')
-    assert.equal(typeof options.hostname, 'string', 'options.hostname string is required')
-    assert.equal(typeof options.token, 'string', 'options.token string is required')
-    var token = options.token
-    var hostname = options.hostname
-    res.setHeader('Set-Cookie', config.name + '_access_token=' + token + '; ' + 'path=/; domain=' + hostname + '; HttpOnly')
-  }
-
-  accounts.removeCookie = function removeCookie (res) {
-    assert.equal(typeof res, 'object', 'response object is required')
-    res.setHeader('Set-Cookie', config.name + '_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT')
   }
 
   accounts.auth = auth

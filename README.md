@@ -41,7 +41,6 @@ accounts.register(creds, function (err, account) {
 
 ## Documentation
 - [Getting started](docs/getting-started.md)
-- [Related modules](docs/related-modules.md)
 - [API](docs/api.md)
 - [Tests](tests/)
 
