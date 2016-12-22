@@ -157,6 +157,17 @@ module.exports = function townshipAccounts (db, config) {
     })
   }
 
+  /**
+  * Destroy an account
+  * @name logout
+  * @param {String} key – the key for an account
+  * @param {Function} callback – callback function called with an `error` argument
+  * @example
+  *
+  * accounts.destroy(token, function (err) {
+  *   if (err) return console.log(err)
+  * })
+  **/
   accounts.destroy = function destroy (key, callback) {
     if (!key || typeof key !== 'string') return callback(new Error('account key is required'))
 

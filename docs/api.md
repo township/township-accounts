@@ -90,6 +90,23 @@ accounts.logout(token, function (err) {
 })
 ```
 
+# logout
+
+Destroy an account
+
+**Parameters**
+
+-   `key` **[String](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)** – the key for an account
+-   `callback` **[Function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function)** – callback function called with an `error` argument
+
+**Examples**
+
+```javascript
+accounts.destroy(token, function (err) {
+  if (err) return console.log(err)
+})
+```
+
 # findbyEmail
 
 Find an account by email

@@ -18,7 +18,7 @@ Node.js library for managing user accounts.
 
 ## About
 
-township-accounts is a high-level module based on [township-auth](), which manages authentication credentials, [township-access](), which manages authorization via access scopes, and [township-token](), which manages JWT tokens.
+township-accounts is a high-level module based on [township-auth](https://github.com/township/township-auth), which manages authentication credentials, [township-access](https://github.com/township/township-access), which manages authorization via access scopes, and [township-token](https://github.com/township/township-token), which manages JWT tokens.
 
 ## Install
 
