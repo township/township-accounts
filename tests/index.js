@@ -114,7 +114,7 @@ test('change password', function (t) {
   accounts.register(creds, function (err, account) {
     t.ifErr(err)
     creds.newPassword = 'pizzayum'
-    creds.token = account.token
+    var oldToken = account.token
 
     // if called within 1 second the token can be the same!
     // TODO: does that matter?
@@ -124,7 +124,7 @@ test('change password', function (t) {
         t.equal(typeof account, 'object')
         t.equal(typeof account.key, 'string')
         t.equal(typeof account.token, 'string')
-        t.notEqual(creds.token, account.token)
+        t.notEqual(oldToken, account.token)
         t.end()
       })
     }, 1000)

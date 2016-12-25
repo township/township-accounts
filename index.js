@@ -212,7 +212,6 @@ module.exports = function townshipAccounts (db, config) {
   * @param {String} options.email – email address that corresponds to an account
   * @param {String} options.password – password that corresponds to an account
   * @param {String} options.newPassword – new password for an account
-  * @param {String} token – the active token for an account
   * @param {Function} callback – callback function called with `error` and `account` arguments
   * @example
   *
@@ -233,7 +232,6 @@ module.exports = function townshipAccounts (db, config) {
     if (typeof options.email !== 'string') return callback(new Error('options.email string is required'))
     if (typeof options.password !== 'string') return callback(new Error('options.password string is required'))
     if (typeof options.newPassword !== 'string') return callback(new Error('options.newPassword string is required'))
-    if (typeof options.token !== 'string') return callback(new Error('options.token string is required'))
 
     var creds = {
       email: options.email,
@@ -262,10 +260,7 @@ module.exports = function townshipAccounts (db, config) {
             access: account.access
           })
 
-          jwt.invalidate(options.token, function (err) {
-            if (err) return callback(err)
-            callback(null, { key: authData.key, token: newToken })
-          })
+          callback(null, { key: authData.key, token: newToken })
         })
       })
     })
