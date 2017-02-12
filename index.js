@@ -324,7 +324,7 @@ module.exports = function townshipAccounts (db, config) {
   * @param {Function} callback – callback function called with `error` and `accountData` arguments
   * @example
   *
-  * accounts.updateScopes(key, ['example:read'], function (err) {
+  * accounts.verifyToken(token, function (err, account) {
   *   if (err) return console.log(err)
   * })
   **/
