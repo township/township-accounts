@@ -1,6 +1,6 @@
 {
   "name": "township-accounts",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "description": "Node.js library for managing user accounts.",
   "main": "index.js",
   "scripts": {
