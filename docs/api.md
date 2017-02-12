@@ -220,7 +220,7 @@ verify that a token is valid
 **Examples**
 
 ```javascript
-accounts.updateScopes(key, ['example:read'], function (err) {
+accounts.verifyToken(token, (err, account) => {
   if (err) return console.log(err)
 })
 ```
