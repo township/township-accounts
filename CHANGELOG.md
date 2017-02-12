@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 * ???
 
+## 4.0.3
+
+### Fixed 
+* `options.token` not required in `accounts.updatePassword`
+
+## 4.0.2
+
+### Fixed
+* docs improvements
+
+## 4.0.3
+
+### Fixed
+* docs improvements
+
 ## 4.0.0
 
 ### Added
