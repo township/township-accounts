@@ -40,7 +40,7 @@ module.exports = function townshipAccounts (db, config) {
   hooks.beforeDestroy = hooks.beforeDestroy || noop
 
   function lock (key, callback) {
-    locks.acquire(key, callback);
+    locks.acquire(key, callback)
   }
 
   /**
@@ -263,6 +263,8 @@ module.exports = function townshipAccounts (db, config) {
     }
 
     lock(options.email, (err, release) => {
+      if (err) return callback(err)
+
       accounts.findByEmail(options.email, function (err, account) {
         if (err) {
           release()
