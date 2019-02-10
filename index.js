@@ -1,10 +1,11 @@
 var assert = require('assert')
 
-var createAuth = require('township-auth')
+var TownshipAuth = require('township-auth')
 var basic = require('township-auth/basic')
 var createAccess = require('township-access')
 var createToken = require('township-token')
 var xtend = require('xtend')
+var locks = require('semlocks')
 
 /**
 * Create an accounts object
@@ -22,11 +23,11 @@ var xtend = require('xtend')
 * })
 **/
 module.exports = function townshipAccounts (db, config) {
-  assert.equal(typeof db, 'object', 'leveldb instance required as first argument')
-  assert.equal(typeof config, 'object', 'config object required')
+  assert.strictEqual(typeof db, 'object', 'leveldb instance required as first argument')
+  assert.strictEqual(typeof config, 'object', 'config object required')
 
   var accounts = {}
-  var auth = createAuth(db, { providers: { basic: basic } })
+  var auth = new TownshipAuth(db, { providers: { basic: basic } })
   var access = createAccess(db, config)
   var jwt = createToken(db, config)
 
@@ -37,6 +38,10 @@ module.exports = function townshipAccounts (db, config) {
   hooks.beforeRegister = hooks.beforeRegister || noop
   hooks.afterRegister = hooks.afterRegister || noop
   hooks.beforeDestroy = hooks.beforeDestroy || noop
+
+  function lock (key, callback) {
+    locks.acquire(key, callback);
+  }
 
   /**
   * Create an account
@@ -60,33 +65,52 @@ module.exports = function townshipAccounts (db, config) {
   * })
   **/
   accounts.register = function register (options, callback) {
+    console.log('register', options)
     if (!options.email) return callback(new Error('options.email required'))
     if (!options.password) return callback(new Error('options.password required'))
     options.scopes = options.scopes || []
 
-    hooks.beforeRegister(options, function (err, hookOptions) {
+    lock(options.email, (err, release) => {
       if (err) return callback(err)
-      options = xtend(options, hookOptions)
 
-      accounts.findByEmail(options.email, function (err, account) {
-        if (!err && account) return callback(new Error('Cannot create account with that email address'))
+      hooks.beforeRegister(options, function (err, hookOptions) {
+        if (err) {
+          release()
+          return callback(err)
+        }
 
-        auth.create({ basic: options }, function (err, authData) {
-          if (err) return callback(err)
+        options = xtend(options, hookOptions)
 
-          access.create(authData.key, options.scopes, function (err, accessData) {
-            if (err) return callback(err)
+        accounts.findByEmail(options.email, function (err, account) {
+          if (!err && account) {
+            release()
+            return callback(new Error('Cannot create account with that email address'))
+          }
 
-            var token = jwt.sign({
-              auth: authData,
-              access: accessData
-            })
+          auth.create({ basic: options }, function (err, authData) {
+            if (err) {
+              release()
+              return callback(err)
+            }
 
-            var account = { key: authData.key, token: token }
+            access.create(authData.key, options.scopes, function (err, accessData) {
+              if (err) {
+                release()
+                return callback(err)
+              }
 
-            hooks.afterRegister(account, function (err, data) {
-              if (err) return callback(err)
-              return callback(null, data)
+              var token = jwt.sign({
+                auth: authData,
+                access: accessData
+              })
+
+              var account = { key: authData.key, token: token }
+
+              hooks.afterRegister(account, function (err, data) {
+                release()
+                if (err) return callback(err)
+                return callback(null, data)
+              })
             })
           })
         })
@@ -238,29 +262,41 @@ module.exports = function townshipAccounts (db, config) {
       password: options.password
     }
 
-    accounts.findByEmail(options.email, function (err, account) {
-      if (err) return callback(err)
-
-      auth.verify('basic', creds, function (err, authData) {
-        if (err) return callback(err)
-
-        var updatedCreds = {
-          key: authData.key,
-          basic: {
-            email: options.email,
-            password: options.newPassword
-          }
+    lock(options.email, (err, release) => {
+      accounts.findByEmail(options.email, function (err, account) {
+        if (err) {
+          release()
+          return callback(err)
         }
 
-        auth.update(updatedCreds, function (err, authData) {
-          if (err) return callback(err)
+        auth.verify('basic', creds, function (err, authData) {
+          if (err) {
+            release()
+            return callback(err)
+          }
 
-          var newToken = jwt.sign({
-            auth: authData,
-            access: account.access
+          var updatedCreds = {
+            key: authData.key,
+            basic: {
+              email: options.email,
+              password: options.newPassword
+            }
+          }
+
+          auth.update(updatedCreds, function (err, authData) {
+            if (err) {
+              release()
+              return callback(err)
+            }
+
+            var newToken = jwt.sign({
+              auth: authData,
+              access: account.access
+            })
+
+            release()
+            callback(null, { key: authData.key, token: newToken })
           })
-
-          callback(null, { key: authData.key, token: newToken })
         })
       })
     })

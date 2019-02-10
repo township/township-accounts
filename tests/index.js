@@ -33,6 +33,33 @@ test('register', function (t) {
   })
 })
 
+test('register lock', function (t) {
+  t.plan(5)
+
+  var accounts = createAccounts(db(), {
+    secret: 'not a secret'
+  })
+
+  var creds = {
+    email: 'user@example.com',
+    password: 'pass'
+  }
+
+  accounts.register(creds, function (err, account) {
+    t.notOk(err)
+    t.equal(typeof account.key, 'string')
+    t.equal(typeof account.token, 'string')
+  })
+
+  accounts.register(creds, function (err, account) {
+    t.ok(err)
+  })
+
+  accounts.register(creds, function (err, account) {
+    t.ok(err)
+  })
+})
+
 test('login', function (t) {
   var accounts = createAccounts(db(), {
     secret: 'not a secret'
@@ -126,6 +153,41 @@ test('change password', function (t) {
         t.equal(typeof account.token, 'string')
         t.notEqual(oldToken, account.token)
         t.end()
+      })
+    }, 1000)
+  })
+})
+
+test('change password lock', function (t) {
+  t.plan(7)
+
+  var accounts = createAccounts(db(), {
+    secret: 'not a secret'
+  })
+
+  var creds = {
+    email: 'user@example.com',
+    password: 'pass'
+  }
+
+  accounts.register(creds, function (err, account) {
+    t.ifErr(err)
+    creds.newPassword = 'pizzayum'
+    var oldToken = account.token
+
+    // if called within 1 second the token can be the same!
+    // TODO: does that matter?
+    setTimeout(function () {
+      accounts.updatePassword(creds, function (err, account) {
+        t.ifErr(err)
+        t.equal(typeof account, 'object')
+        t.equal(typeof account.key, 'string')
+        t.equal(typeof account.token, 'string')
+        t.notEqual(oldToken, account.token)
+      })
+
+      accounts.updatePassword(creds, function (err, account) {
+        t.ok(err)
       })
     }, 1000)
   })
